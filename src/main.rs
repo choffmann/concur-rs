@@ -1,11 +1,10 @@
-use std::{env, io::{BufRead, BufReader}, process::{Command, Stdio}, sync, thread::{self, JoinHandle}};
+use std::{env, process::{Command, Stdio}, sync, thread::{self, JoinHandle}};
 
 mod logger;
 use logger::{LogColor, Logger};
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
-
     let colors = vec![LogColor::Yellow, LogColor::Blue, LogColor::Magenta];
 
     let (tx, rx) = sync::mpsc::channel();
@@ -15,27 +14,30 @@ fn main() {
         let mut cmd = Command::new(arg1)
             .args([arg2, arg])
             .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()
             .expect("failed to prepare command");
 
         let tx = tx.clone();
         let color = colors[i%3].clone();
+        let log = Logger::new(format!("Process {i}"), color);
+
+        let stdout = cmd.stdout.take().expect("failed to capture stdout");
+        let stderr = cmd.stderr.take().expect("failed to capture stderr");
+        let log_handler = log.stream(stdout, None);
+        let elog_handler = log.stream(stderr, Some(LogColor::Red));
+
         let h = thread::spawn(move || {
-            let log = Logger::new(format!("foo {i}"), color);
-            let stdout = cmd.stdout.as_mut().unwrap();
-            let stdout_reader = BufReader::new(stdout);
-            let stdout_lines = stdout_reader.lines();
-
-            for line in stdout_lines {
-                log.println(line.unwrap()).unwrap();
-            }
-
             cmd.wait_with_output().expect("failed to execute command");
             tx.send(i).unwrap();
+            log_handler.join().unwrap();
+            elog_handler.join().unwrap();
         });
 
         Some(h)
     }).collect();
+
+    drop(tx);
 
     loop {
         let num_left = handler.iter().filter(|h| h.is_some()).count();

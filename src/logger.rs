@@ -1,4 +1,4 @@
-use std::{fmt::Display, io::{self, Write}};
+use std::{fmt::Display, io::{self, BufRead, BufReader}, thread};
 
 #[derive(Clone)]
 pub enum LogColor {
@@ -53,17 +53,18 @@ impl Logger {
         Self { name, color }
     }
 
-    pub fn println(&self, value: String) -> Result<(), Box<dyn std::error::Error>> {
-        let stdout = io::stdout();
-        let mut handle = stdout.lock();
-        let print = self.append_color(format!("[ {} ] {}", self.name, value));
-        writeln!(handle, "{print}")?;
+    pub fn stream(&self, out: impl io::Read + Send + 'static, color: Option<LogColor>) -> thread::JoinHandle<()> {
+        let name = self.name.clone();
+        let color = color.unwrap_or(self.color.clone());
 
-        Ok(())
-    }
-
-    fn append_color(&self, value: String) -> String {
-        format!("\x1b[{}{value}\x1b[0m", self.color)
+        thread::spawn(move || {
+            let reader = BufReader::new(out);
+            for line in reader.lines() {
+                let line = line.unwrap_or("error reading line".to_string());
+                let print = format!("\x1b[{color}[{name}] {line}\x1b[0m");
+                println!("{print}")
+            }
+        })
     }
 }
 
