@@ -1,5 +1,8 @@
 use std::{env, io::{BufRead, BufReader}, process::{Command, Stdio}, sync, thread::{self, JoinHandle}};
 
+mod logger;
+use logger::Logger;
+
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
 
@@ -15,12 +18,13 @@ fn main() {
 
         let tx = tx.clone();
         let h = thread::spawn(move || {
+            let log = Logger::new("foo".to_string());
             let stdout = cmd.stdout.as_mut().unwrap();
             let stdout_reader = BufReader::new(stdout);
             let stdout_lines = stdout_reader.lines();
 
             for line in stdout_lines {
-                println!("{}", line.unwrap())
+                log.println(line.unwrap()).unwrap();
             }
 
             cmd.wait_with_output().expect("failed to execute command");
