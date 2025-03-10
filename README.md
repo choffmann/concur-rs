@@ -7,6 +7,6 @@ Secondly it adds the functionality for healthchecks, which are always at the bot
 ## Status
 - [x] run commands concurrently
 - [ ] add support config file
-- [ ] add logger with color support 
+- [x] add logger with color support 
 - [ ] add healthchecks
 - [ ] support run commands before and after
